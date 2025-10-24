@@ -1,6 +1,8 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:bumper_builder/game.dart';
+import 'package:bumper_builder/components/start_screen.dart';
+import 'package:bumper_builder/components/end_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,6 +17,24 @@ class MyApp extends StatelessWidget {
       home: Scaffold(
         body: GameWidget(
           game: BumperBuilderGame(),
+          overlayBuilderMap: {
+            'startScreen': (BuildContext context, BumperBuilderGame game) {
+              return StartScreen(
+                onStartPressed: () {
+                  game.startGame();
+                },
+              );
+            },
+            'endScreen': (BuildContext context, BumperBuilderGame game) {
+              return EndScreen(
+                score: game.targetVortex.pelletCount,
+                totalPellets: game.totalPellets,
+                onRestart: () {
+                  game.restartGame();
+                },
+              );
+            },
+          },
         ),
       ),
     );

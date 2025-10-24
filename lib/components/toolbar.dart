@@ -3,14 +3,16 @@ import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:bumper_builder/game.dart';
 
-enum Tool { pencil, eraser }
+enum Tool { pencil, undo }
 
 class ToolbarComponent extends PositionComponent with HasGameRef<BumperBuilderGame>, TapCallbacks {
   late final Paint _backgroundPaint;
   late final Paint _selectedIconPaint;
 
-  late final TextPainter _pencilPainter;
-  late final TextPainter _eraserPainter;
+  late final TextPainter _wallCountPainter;
+  late final TextPainter _undoPainter;
+  late final TextPainter _percentagePainter;
+  late final TextPainter _timerPainter;
 
   ToolbarComponent() {
     _backgroundPaint = Paint()..color = const Color(0x8000d8ff);
@@ -19,35 +21,27 @@ class ToolbarComponent extends PositionComponent with HasGameRef<BumperBuilderGa
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    _pencilPainter = TextPainter(textDirection: TextDirection.ltr);
-    _eraserPainter = TextPainter(textDirection: TextDirection.ltr);
+    _wallCountPainter = TextPainter(textDirection: TextDirection.ltr);
+    _undoPainter = TextPainter(textDirection: TextDirection.ltr);
+    _percentagePainter = TextPainter(textDirection: TextDirection.ltr);
+    _timerPainter = TextPainter(textDirection: TextDirection.ltr);
   }
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     position = Vector2(gameRef.size.x - 80, 60);
-    size = Vector2(60, 120);
+    size = Vector2(60, 240); // Increased height
 
-    _pencilPainter.text = TextSpan(
-      text: String.fromCharCode(Icons.brush.codePoint),
+    _undoPainter.text = TextSpan(
+      text: String.fromCharCode(Icons.undo.codePoint),
       style: TextStyle(
         color: Colors.white,
         fontSize: 40,
-        fontFamily: Icons.brush.fontFamily,
+        fontFamily: Icons.undo.fontFamily,
       ),
     );
-    _pencilPainter.layout();
-
-    _eraserPainter.text = TextSpan(
-      text: String.fromCharCode(Icons.cleaning_services_sharp.codePoint),
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 40,
-        fontFamily: Icons.cleaning_services_sharp.fontFamily,
-      ),
-    );
-    _eraserPainter.layout();
+    _undoPainter.layout();
   }
 
   @override
@@ -55,28 +49,68 @@ class ToolbarComponent extends PositionComponent with HasGameRef<BumperBuilderGa
     super.render(canvas);
     canvas.drawRect(size.toRect(), _backgroundPaint);
 
-    // Eraser icon
-    final eraserRect = Rect.fromLTWH(10, 10, 40, 40);
-    if (gameRef.selectedTool == Tool.eraser) {
-      canvas.drawRect(eraserRect, _selectedIconPaint);
-    }
-    _eraserPainter.paint(canvas, eraserRect.center - Offset(_eraserPainter.width / 2, _eraserPainter.height / 2));
+    // Undo icon
+    final undoRect = Rect.fromLTWH(10, 10, 40, 40);
+    _undoPainter.paint(canvas, undoRect.center - Offset(_undoPainter.width / 2, _undoPainter.height / 2));
 
-    // Pencil icon
+    // Wall count
+    _wallCountPainter.text = TextSpan(
+      text: gameRef.remainingWalls.toString(),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 40,
+      ),
+    );
+    _wallCountPainter.layout();
+
     final pencilRect = Rect.fromLTWH(10, 70, 40, 40);
     if (gameRef.selectedTool == Tool.pencil) {
       canvas.drawRect(pencilRect, _selectedIconPaint);
     }
-    _pencilPainter.paint(canvas, pencilRect.center - Offset(_pencilPainter.width / 2, _pencilPainter.height / 2));
+    _wallCountPainter.paint(canvas, pencilRect.center - Offset(_wallCountPainter.width / 2, _wallCountPainter.height / 2));
+
+    // Percentage
+    final whitePellets = gameRef.targetVortex.pelletCount;
+    final totalPellets = gameRef.totalPellets;
+    final percentage = totalPellets > 0 ? (whitePellets / totalPellets) * 100 : 0;
+
+    _percentagePainter.text = TextSpan(
+      text: '${percentage.toStringAsFixed(0)}%',
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+      ),
+    );
+    _percentagePainter.layout();
+
+    final percentageRect = Rect.fromLTWH(10, 130, 40, 40);
+    _percentagePainter.paint(canvas, percentageRect.center - Offset(_percentagePainter.width / 2, _percentagePainter.height / 2));
+
+    // Timer
+    final minutes = (gameRef.remainingTime / 60).floor().toString().padLeft(2, '0');
+    final seconds = (gameRef.remainingTime % 60).toString().padLeft(2, '0');
+    _timerPainter.text = TextSpan(
+      text: '$minutes:$seconds',
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+      ),
+    );
+    _timerPainter.layout();
+
+    final timerRect = Rect.fromLTWH(10, 190, 40, 40);
+    _timerPainter.paint(canvas, timerRect.center - Offset(_timerPainter.width / 2, _timerPainter.height / 2));
   }
 
   @override
   void onTapDown(TapDownEvent event) {
     super.onTapDown(event);
     if (Rect.fromLTWH(10, 10, 40, 40).contains(event.localPosition.toOffset())) {
-      gameRef.selectedTool = Tool.eraser;
+      gameRef.undoLastWall();
     } else if (Rect.fromLTWH(10, 70, 40, 40).contains(event.localPosition.toOffset())) {
-      gameRef.selectedTool = Tool.pencil;
+      if (gameRef.remainingWalls > 0) {
+        gameRef.selectedTool = Tool.pencil;
+      }
     }
   }
 }

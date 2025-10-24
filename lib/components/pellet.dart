@@ -1,6 +1,7 @@
 import 'package:flame/extensions.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
+import 'package:bumper_builder/game.dart';
 
 class Pellet extends BodyComponent {
   final Vector2 position;
@@ -39,5 +40,14 @@ class Pellet extends BodyComponent {
       circle.radius,
       _paint,
     );
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (body.position.y > (world as BumperBuilderWorld).gameRef.size.y) {
+      (world as BumperBuilderWorld).pellets.remove(this);
+      removeFromParent();
+    }
   }
 }
