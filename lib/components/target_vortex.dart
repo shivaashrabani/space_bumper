@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:bumper_builder/components/pellet.dart';
@@ -77,6 +78,7 @@ class TargetVortex extends BodyComponent with ContactCallbacks {
   @override
   void beginContact(Object other, Contact contact) {
     if (other is Pellet) {
+      FlameAudio.play('correct.mp3');
       (world as BumperBuilderWorld).pellets.remove(other);
       other.removeFromParent();
       pelletCount++;

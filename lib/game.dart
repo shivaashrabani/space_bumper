@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:bumper_builder/components/bumper.dart';
 import 'package:bumper_builder/components/drain_hole.dart';
@@ -27,6 +28,9 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   int remainingWalls = 3;
   GameState gameState = GameState.waitingToStart;
   int remainingTime = 30;
+
+  double currentWallLength = 0.0;
+  static const double maxWallLength = 20.0;
 
   TargetVortex get targetVortex => (world as BumperBuilderWorld).targetVortex;
   DrainHole get drainHole => (world as BumperBuilderWorld).drainHole;
@@ -53,6 +57,12 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    FlameAudio.audioCache.prefix = 'assets/sounds/';
+    await FlameAudio.audioCache.loadAll([
+      'gamemusic.mp3',
+      'correct.mp3',
+      'wrong.mp3',
+    ]);
     overlays.add('startScreen');
     add(ToolbarComponent());
   }
@@ -80,26 +90,16 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   }
 
   void endGame() {
+    FlameAudio.bgm.stop();
     (world as BumperBuilderWorld).stopDroppingPellets();
     gameState = GameState.waitingForPelletsToSettle;
-    add(
-      TimerComponent(
-        period: 0.1,
-        repeat: true,
-        onTick: () {
-          if (pelletsHaveSettled) {
-            gameState = GameState.gameOver;
-            overlays.add('endScreen');
-            this.children.whereType<TimerComponent>().forEach((timer) => timer.timer.stop());
-          }
-        },
-      ),
-    );
+    add(SettleDownComponent());
   }
 
   void restartGame() {
     overlays.remove('endScreen');
-    gameState = GameState.waitingToStart;
+
+    // Reset game state
     remainingTime = 30;
     (world as BumperBuilderWorld).totalPellets = 0;
     (world as BumperBuilderWorld).pellets.clear();
@@ -111,10 +111,33 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     world.children.whereType<Bumper>().forEach((bumper) => bumper.removeFromParent());
     wallStrokes.clear();
     remainingWalls = 3;
-    overlays.add('startScreen');
+
+    // Remove old timers
+    children.whereType<TimerComponent>().forEach((timer) => timer.removeFromParent());
+
+    // Start countdown
+    gameState = GameState.countingDown;
+    add(CountdownComponent());
+
+    // Add game timer
+    add(
+      TimerComponent(
+        period: 1,
+        repeat: true,
+        onTick: () {
+          if (gameState == GameState.playing) {
+            remainingTime--;
+            if (remainingTime <= 0) {
+              endGame();
+            }
+          }
+        },
+      ),
+    );
   }
 
   void startDroppingPellets() {
+    FlameAudio.bgm.play('gamemusic.mp3');
     (world as BumperBuilderWorld).startDroppingPellets();
   }
 
@@ -141,6 +164,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     if (selectedTool == Tool.pencil) {
       if (remainingWalls > 0) {
         wallStrokes.add([]);
+        currentWallLength = 0.0;
       }
     }
     dragStart = event.localPosition;
@@ -163,10 +187,15 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
         if (isDraggingWall) {
           final worldStart = screenToWorld(dragEnd!);
           final worldEnd = screenToWorld(event.canvasEndPosition);
-          final wall = Wall(worldStart, worldEnd, wallPaint: drawnWallPaint, isErasable: true);
-          world.add(wall);
-          if (wallStrokes.isNotEmpty) {
-            wallStrokes.last.add(wall);
+          final segmentLength = (worldEnd - worldStart).length;
+
+          if (currentWallLength + segmentLength <= maxWallLength) {
+            currentWallLength += segmentLength;
+            final wall = Wall(worldStart, worldEnd, wallPaint: drawnWallPaint, isErasable: true);
+            world.add(wall);
+            if (wallStrokes.isNotEmpty) {
+              wallStrokes.last.add(wall);
+            }
           }
         }
       }
@@ -345,5 +374,79 @@ class CountdownComponent extends Component with HasGameRef<BumperBuilderGame> {
         },
       ),
     );
+  }
+}
+
+class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
+  @override
+  Future<void> onLoad() async {
+    super.onLoad();
+
+    add(RectangleComponent(
+      size: gameRef.size,
+      paint: Paint()..color = Colors.black.withOpacity(0.5),
+    ));
+
+    final timerOverText = TextComponent(
+      text: 'Timer is Over',
+      position: gameRef.size / 2,
+      anchor: Anchor.center,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 50,
+          fontFamily: 'Orbitron',
+          shadows: [Shadow(color: Colors.red, blurRadius: 10)],
+        ),
+      ),
+    );
+    add(timerOverText);
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    remove(timerOverText);
+
+    final convertingText = TextBoxComponent(
+      text: 'Converting pallets to encoded message...',
+      size: Vector2(gameRef.size.x * 0.8, 200),
+      position: gameRef.size / 2,
+      anchor: Anchor.center,
+      align: Anchor.center,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.cyanAccent,
+          fontSize: 20,
+          fontFamily: 'Orbitron',
+          shadows: [Shadow(color: Colors.cyanAccent, blurRadius: 10)],
+        ),
+      ),
+    );
+    add(convertingText);
+
+    final flickerTimer = TimerComponent(
+      period: 0.5,
+      repeat: true,
+      onTick: () {
+        if (convertingText.isMounted) {
+          remove(convertingText);
+        } else {
+          add(convertingText);
+        }
+      },
+    );
+    add(flickerTimer);
+
+    add(TimerComponent(
+      period: 0.1,
+      repeat: true,
+      onTick: () {
+        if (gameRef.pelletsHaveSettled) {
+          gameRef.gameState = GameState.gameOver;
+          gameRef.overlays.add('endScreen');
+          gameRef.children.whereType<TimerComponent>().forEach((timer) => timer.timer.stop());
+          removeFromParent();
+        }
+      },
+    ));
   }
 }
