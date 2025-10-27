@@ -39,7 +39,9 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    if (widget.level == 5) {
+    if (widget.level == 10) {
+      _decodedMessage = 'Final transmission received. You have mastered the art of cosmic construction. The path to Cygnus Gamma-9 is clear. We await your arrival. Welcome, Builder.';
+    } else if (widget.level == 5) {
       _decodedMessage = 'Quantum entanglement successful. Trajectory data acquired. Warning: Gravitational anomalies detected ahead. Navigate with caution. Asteroid fields imminent.';
     } else {
       _decodedMessage = 'Initializing first-contact sequence. Draw lines and channel the pallets to your planet. Velocity nominal.';
@@ -68,7 +70,7 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
     }
     _visibleMessage = _scrambleMessage(_decodedMessage).toUpperCase();
 
-    if (widget.level >= 2 && widget.level <= 4) {
+    if ((widget.level >= 2 && widget.level <= 4) || (widget.level >= 6 && widget.level <= 9)) {
       if (percentage < 50) {
         _isDecoding = false;
       } else {
@@ -255,7 +257,7 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 20.0),
-            if (widget.level == 1 || widget.level == 5) ...[
+            if (widget.level == 1 || widget.level == 5 || widget.level == 10) ...[
               const Text(
                 'You received an encoded message from planet Cygnus Gamma-9',
                 textAlign: TextAlign.center,
@@ -367,7 +369,7 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
         if (_decodingStep == DecodingStep.complete)
           Column(
             children: [
-              if (widget.level >= 2 && widget.level <= 4 && !failed) ...[
+              if (((widget.level >= 2 && widget.level <= 4) || (widget.level >= 6 && widget.level <= 9)) && !failed) ...[
                 const Text(
                   'Great Job!',
                   textAlign: TextAlign.center,
@@ -459,7 +461,7 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
                     elevation: 10.0,
                   ),
                   child: Text(
-                    widget.level < 5 ? 'Next Level' : 'Play Again',
+                    widget.level < 10 ? 'Next Level' : 'Play Again',
                     style: const TextStyle(
                       fontSize: 20.0,
                       fontFamily: 'Orbitron',

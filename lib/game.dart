@@ -6,6 +6,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:bumper_builder/components/asteroid.dart';
 import 'package:bumper_builder/components/bumper.dart';
 import 'package:bumper_builder/components/drain_hole.dart';
 import 'package:bumper_builder/components/grid.dart';
@@ -23,12 +24,16 @@ class Level {
   final Vector2 drainHolePosition;
   final Vector2 targetVortexPosition;
   final Vector2 pelletVelocity;
+  final List<Vector2> asteroidPositions;
+  final List<double> asteroidRadii;
 
   Level({
     required this.emitterPosition,
     required this.drainHolePosition,
     required this.targetVortexPosition,
     required this.pelletVelocity,
+    this.asteroidPositions = const [],
+    this.asteroidRadii = const [],
   });
 }
 
@@ -90,8 +95,13 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
 
   void _initializeLevels(Vector2 wallSize) {
     const bottomPadding = 5.0;
+    const wallPadding = 5.0; // Padding from side walls
     final bottomY = wallSize.y * 2 - bottomPadding;
     final gravity = world.gravity.y;
+    final centerX = wallSize.x;
+    final gameWidth = wallSize.x * 2;
+    final gameHeight = wallSize.y * 2;
+    final rightX = gameWidth - bottomPadding;
 
     Vector2 calculateVelocity(Vector2 start, Vector2 end, double time) {
       final dx = end.x - start.x;
@@ -102,40 +112,95 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     }
 
     levels = [
-      // Level 1
+      // Level 1-5 (existing)
       Level(
-        emitterPosition: Vector2(wallSize.x, 5),
-        drainHolePosition: Vector2(wallSize.x, bottomY),
-        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY),
         pelletVelocity: Vector2(0, 0),
       ),
-      // Level 2
       Level(
-        emitterPosition: Vector2(5, 5),
-        drainHolePosition: Vector2(wallSize.x, bottomY),
-        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
-        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x, bottomY), 2.0),
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(centerX, bottomY), 2.0),
       ),
-      // Level 3
       Level(
-        emitterPosition: Vector2(5, 5),
-        drainHolePosition: Vector2(wallSize.x + 5, bottomY),
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(centerX + 5, bottomY),
         targetVortexPosition: Vector2(bottomPadding, bottomY),
-        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x + 5, bottomY), 2.5),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(centerX + 5, bottomY), 2.5),
       ),
-      // Level 4
       Level(
-        emitterPosition: Vector2(wallSize.x * 2 - 5, 5),
-        drainHolePosition: Vector2(wallSize.x - 5, bottomY),
+        emitterPosition: Vector2(gameWidth - wallPadding, 5),
+        drainHolePosition: Vector2(centerX - 5, bottomY),
         targetVortexPosition: Vector2(bottomPadding, bottomY),
-        pelletVelocity: calculateVelocity(Vector2(wallSize.x * 2 - 5, 5), Vector2(wallSize.x - 5, bottomY), 2.0),
+        pelletVelocity: calculateVelocity(Vector2(gameWidth - wallPadding, 5), Vector2(centerX - 5, bottomY), 2.0),
       ),
-      // Level 5
       Level(
-        emitterPosition: Vector2(5, 5),
-        drainHolePosition: Vector2(wallSize.x, bottomY - 10),
-        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
-        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x, bottomY - 10), 2.0),
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(centerX, bottomY - 10),
+        targetVortexPosition: Vector2(rightX, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(centerX, bottomY - 10), 2.0),
+      ),
+
+      // Levels 6-10 (with asteroids)
+      Level(
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(rightX - 5, bottomY),
+        targetVortexPosition: Vector2(centerX, gameHeight - 15),
+        pelletVelocity: Vector2(0, 0),
+        asteroidPositions: [Vector2(centerX - 5, gameHeight - 20), Vector2(centerX + 5, gameHeight - 22)],
+        asteroidRadii: [2.0, 1.5],
+      ),
+      Level(
+        emitterPosition: Vector2(wallPadding, 10),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 10), Vector2(centerX, bottomY), 2.2),
+        asteroidPositions: [Vector2(centerX + 8, bottomY - 5), Vector2(centerX + 15, bottomY - 2), Vector2(rightX - 4, bottomY - 8)],
+        asteroidRadii: [1.5, 1.5, 1.0],
+      ),
+      Level(
+        emitterPosition: Vector2(rightX, 5),
+        drainHolePosition: Vector2(wallPadding, bottomY),
+        targetVortexPosition: Vector2(centerX, gameHeight - 10),
+        pelletVelocity: calculateVelocity(Vector2(rightX, 5), Vector2(wallPadding, bottomY), 2.5),
+        asteroidPositions: [
+          Vector2(centerX - 10, gameHeight - 25),
+          Vector2(centerX + 10, gameHeight - 25),
+          Vector2(centerX - 5, gameHeight - 18),
+          Vector2(centerX + 5, gameHeight - 18),
+        ],
+        asteroidRadii: [2.0, 2.0, 1.5, 1.5],
+      ),
+      Level(
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(rightX, bottomY),
+        targetVortexPosition: Vector2(wallPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(rightX, bottomY), 3.0),
+        asteroidPositions: [
+          Vector2(centerX, 25),
+          Vector2(wallPadding + 8, bottomY - 10),
+          Vector2(wallPadding + 15, bottomY - 5),
+          Vector2(wallPadding + 5, bottomY - 2),
+        ],
+        asteroidRadii: [2.5, 2.0, 1.5, 1.0],
+      ),
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, gameHeight - 15),
+        pelletVelocity: Vector2(0, 0),
+        asteroidPositions: [
+          Vector2(centerX + 8, 20),
+          Vector2(centerX + 15, 35),
+          Vector2(rightX - 5, 25),
+          Vector2(centerX + 12, gameHeight - 20),
+          Vector2(rightX - 8, gameHeight - 10),
+          Vector2(centerX + 5, gameHeight - 15),
+        ],
+        asteroidRadii: [2.0, 2.5, 1.5, 2.0, 1.5, 1.0],
       ),
     ];
   }
@@ -173,6 +238,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     world.children.whereType<Pellet>().forEach((pellet) => pellet.removeFromParent());
     world.children.whereType<Wall>().where((wall) => wall.isErasable).forEach((wall) => wall.removeFromParent());
     world.children.whereType<Bumper>().forEach((bumper) => bumper.removeFromParent());
+    world.children.whereType<Asteroid>().forEach((asteroid) => asteroid.removeFromParent());
     wallStrokes.clear();
     remainingWalls = 3;
 
@@ -305,6 +371,7 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
   late DrainHole drainHole;
   late PelletEmitter pelletEmitter;
   late Level currentLevel;
+  late Vector2 wallSize;
 
   int totalPellets = 0;
   final List<Pellet> pellets = [];
@@ -329,7 +396,7 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
     drainHole = DrainHole(position: Vector2.zero());
     pelletEmitter = PelletEmitter(position: Vector2.zero());
 
-    final wallSize = gameRef.screenToWorld(gameRef.size);
+    wallSize = gameRef.screenToWorld(gameRef.size);
     gameRef.camera.moveTo(wallSize);
     add(GridComponent());
 
@@ -356,6 +423,7 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
     children.whereType<DrainHole>().forEach((e) => e.removeFromParent());
     children.whereType<TargetVortex>().forEach((e) => e.removeFromParent());
     children.whereType<PelletEmitter>().forEach((e) => e.removeFromParent());
+    children.whereType<Asteroid>().forEach((e) => e.removeFromParent());
 
     drainHole = DrainHole(position: level.drainHolePosition);
     targetVortex = TargetVortex(position: level.targetVortexPosition);
@@ -364,6 +432,21 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
     add(drainHole);
     add(targetVortex);
     add(pelletEmitter);
+
+    final gameWidth = wallSize.x * 2;
+    final gameHeight = wallSize.y * 2;
+    const inset = 0.5;
+
+    for (var i = 0; i < level.asteroidPositions.length; i++) {
+      final position = level.asteroidPositions[i];
+      final radius = level.asteroidRadii[i];
+
+      // Clamp position to be within bounds
+      position.x = position.x.clamp(radius + inset, gameWidth - radius - inset);
+      position.y = position.y.clamp(radius + inset, gameHeight - radius - inset);
+
+      add(Asteroid(position: position, radius: radius));
+    }
   }
 
   void startDroppingPellets() {
@@ -467,7 +550,7 @@ class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
       paint: Paint()..color = Colors.black.withOpacity(0.5),
     ));
 
-    if (level == 1 || level == 5) {
+    if (level == 1 || level == 5 || level == 10) {
       final timerOverText = TextComponent(
         text: 'Timer is Over',
         position: gameRef.size / 2,
@@ -488,7 +571,7 @@ class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
       remove(timerOverText);
 
       final convertingText = TextBoxComponent(
-        text: level == 1 ? 'Converting pallets to encoded message...' : 'Decoding final transmission...',
+        text: (level == 1 || level == 5) ? 'Converting pallets to encoded message...' : 'Decoding final transmission...',
         size: Vector2(gameRef.size.x * 0.8, 200),
         position: gameRef.size / 2,
         anchor: Anchor.center,
