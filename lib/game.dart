@@ -488,7 +488,7 @@ class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
       remove(timerOverText);
 
       final convertingText = TextBoxComponent(
-        text: level == 1 ? 'Converting pallets to encoded message...' : 'New message decoded!',
+        text: level == 1 ? 'Converting pallets to encoded message...' : 'Decoding final transmission...',
         size: Vector2(gameRef.size.x * 0.8, 200),
         position: gameRef.size / 2,
         anchor: Anchor.center,
@@ -517,20 +517,22 @@ class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
       );
       add(flickerTimer);
     } else {
-      final greatJobText = TextComponent(
-        text: 'Great Job!',
+      final collectingDataText = TextBoxComponent(
+        text: 'Collecting pallet data...',
+        size: Vector2(gameRef.size.x * 0.8, 200),
         position: gameRef.size / 2,
         anchor: Anchor.center,
+        align: Anchor.center,
         textRenderer: TextPaint(
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 50,
+            color: Colors.cyanAccent,
+            fontSize: 20,
             fontFamily: 'Orbitron',
-            shadows: [Shadow(color: Colors.green, blurRadius: 10)],
+            shadows: [Shadow(color: Colors.cyanAccent, blurRadius: 10)],
           ),
         ),
       );
-      add(greatJobText);
+      add(collectingDataText);
     }
 
     add(TimerComponent(

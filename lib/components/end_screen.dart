@@ -31,13 +31,20 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
   late final AnimationController _star3Controller;
 
   bool _isDecoding = false;
-  String _decodedMessage = 'Initializing first-contact sequence. Draw lines and channel the pallets to your planet. Velocity nominal.';
+  String _decodedMessage = '';
   late String _visibleMessage;
   DecodingStep _decodingStep = DecodingStep.initial;
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.level == 5) {
+      _decodedMessage = 'Quantum entanglement successful. Trajectory data acquired. Warning: Gravitational anomalies detected ahead. Navigate with caution. Asteroid fields imminent.';
+    } else {
+      _decodedMessage = 'Initializing first-contact sequence. Draw lines and channel the pallets to your planet. Velocity nominal.';
+    }
+
     _star1Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _star2Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _star3Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
