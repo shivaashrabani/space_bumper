@@ -5,8 +5,9 @@ import 'package:bumper_builder/game.dart';
 
 class Pellet extends BodyComponent {
   final Vector2 position;
+  final Vector2? velocity;
 
-  Pellet({required this.position});
+  Pellet({required this.position, this.velocity});
 
   static final Paint _paint = Paint()
     ..color = Colors.greenAccent
@@ -27,6 +28,7 @@ class Pellet extends BodyComponent {
       angularDamping: 0.8,
       position: position,
       type: BodyType.dynamic,
+      linearVelocity: velocity,
     );
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }

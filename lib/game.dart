@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/components.dart';
@@ -17,8 +18,25 @@ import 'package:flutter/material.dart';
 
 enum GameState { waitingToStart, countingDown, playing, waitingForPelletsToSettle, gameOver }
 
+class Level {
+  final Vector2 emitterPosition;
+  final Vector2 drainHolePosition;
+  final Vector2 targetVortexPosition;
+  final Vector2 pelletVelocity;
+
+  Level({
+    required this.emitterPosition,
+    required this.drainHolePosition,
+    required this.targetVortexPosition,
+    required this.pelletVelocity,
+  });
+}
+
 class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   BumperBuilderGame() : super(world: BumperBuilderWorld(), zoom: 20, gravity: Vector2(0, 10));
+
+  int currentLevel = 1;
+  late final List<Level> levels;
 
   Vector2? dragStart;
   Vector2? dragEnd;
@@ -57,6 +75,9 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    final wallSize = screenToWorld(size);
+    _initializeLevels(wallSize);
+
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([
       'gamemusic.mp3',
@@ -67,25 +88,62 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     add(ToolbarComponent());
   }
 
+  void _initializeLevels(Vector2 wallSize) {
+    const bottomPadding = 5.0;
+    final bottomY = wallSize.y * 2 - bottomPadding;
+    final gravity = world.gravity.y;
+
+    Vector2 calculateVelocity(Vector2 start, Vector2 end, double time) {
+      final dx = end.x - start.x;
+      final dy = end.y - start.y;
+      final vx = dx / time;
+      final vy = (dy - 0.5 * gravity * time * time) / time;
+      return Vector2(vx, vy);
+    }
+
+    levels = [
+      // Level 1
+      Level(
+        emitterPosition: Vector2(wallSize.x, 5),
+        drainHolePosition: Vector2(wallSize.x, bottomY),
+        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
+        pelletVelocity: Vector2(0, 0),
+      ),
+      // Level 2
+      Level(
+        emitterPosition: Vector2(5, 5),
+        drainHolePosition: Vector2(wallSize.x, bottomY),
+        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x, bottomY), 2.0),
+      ),
+      // Level 3
+      Level(
+        emitterPosition: Vector2(5, 5),
+        drainHolePosition: Vector2(wallSize.x + 5, bottomY),
+        targetVortexPosition: Vector2(bottomPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x + 5, bottomY), 2.5),
+      ),
+      // Level 4
+      Level(
+        emitterPosition: Vector2(wallSize.x * 2 - 5, 5),
+        drainHolePosition: Vector2(wallSize.x - 5, bottomY),
+        targetVortexPosition: Vector2(bottomPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallSize.x * 2 - 5, 5), Vector2(wallSize.x - 5, bottomY), 2.0),
+      ),
+      // Level 5
+      Level(
+        emitterPosition: Vector2(5, 5),
+        drainHolePosition: Vector2(wallSize.x, bottomY - 10),
+        targetVortexPosition: Vector2(wallSize.x * 2 - bottomPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(5, 5), Vector2(wallSize.x, bottomY - 10), 2.0),
+      ),
+    ];
+  }
+
   void startGame() {
     if (gameState == GameState.waitingToStart) {
       overlays.remove('startScreen');
-      gameState = GameState.countingDown;
-      add(CountdownComponent());
-      add(
-        TimerComponent(
-          period: 1,
-          repeat: true,
-          onTick: () {
-            if (gameState == GameState.playing) {
-              remainingTime--;
-              if (remainingTime <= 0) {
-                endGame();
-              }
-            }
-          },
-        ),
-      );
+      loadLevel();
     }
   }
 
@@ -93,10 +151,18 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     FlameAudio.bgm.stop();
     (world as BumperBuilderWorld).stopDroppingPellets();
     gameState = GameState.waitingForPelletsToSettle;
-    add(SettleDownComponent());
+    add(SettleDownComponent(level: currentLevel));
   }
 
-  void restartGame() {
+  void goToNextLevel() {
+    currentLevel++;
+    if (currentLevel > levels.length) {
+      currentLevel = 1;
+    }
+    loadLevel();
+  }
+
+  void loadLevel() {
     overlays.remove('endScreen');
 
     // Reset game state
@@ -104,13 +170,13 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     (world as BumperBuilderWorld).totalPellets = 0;
     (world as BumperBuilderWorld).pellets.clear();
     (world as BumperBuilderWorld).stopDroppingPellets();
-    targetVortex.reset();
-    drainHole.reset();
     world.children.whereType<Pellet>().forEach((pellet) => pellet.removeFromParent());
     world.children.whereType<Wall>().where((wall) => wall.isErasable).forEach((wall) => wall.removeFromParent());
     world.children.whereType<Bumper>().forEach((bumper) => bumper.removeFromParent());
     wallStrokes.clear();
     remainingWalls = 3;
+
+    (world as BumperBuilderWorld).setupLevel(levels[currentLevel - 1]);
 
     // Remove old timers
     children.whereType<TimerComponent>().forEach((timer) => timer.removeFromParent());
@@ -158,7 +224,6 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     if (gameState != GameState.playing) return;
     super.onDragStart(event);
     if (event.localPosition.x > size.x - 80 && event.localPosition.y < 140) {
-      // Drag started on the toolbar, ignore it for game interactions.
       return;
     }
     if (selectedTool == Tool.pencil) {
@@ -176,7 +241,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   void onDragUpdate(DragUpdateEvent event) {
     if (gameState != GameState.playing) return;
     super.onDragUpdate(event);
-    if (dragStart == null) return; // Drag started on toolbar
+    if (dragStart == null) return;
 
     if (selectedTool == Tool.pencil && remainingWalls > 0) {
       if (dragEnd != null) {
@@ -207,7 +272,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   void onDragEnd(DragEndEvent event) {
     if (gameState != GameState.playing) return;
     super.onDragEnd(event);
-    if (dragStart == null) return; // Drag started on toolbar
+    if (dragStart == null) return;
 
     if (selectedTool == Tool.pencil) {
       if (!isDraggingWall && dragStart != null) {
@@ -236,8 +301,11 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
 }
 
 class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>, ContactCallbacks {
-  late final TargetVortex targetVortex;
-  late final DrainHole drainHole;
+  late TargetVortex targetVortex;
+  late DrainHole drainHole;
+  late PelletEmitter pelletEmitter;
+  late Level currentLevel;
+
   int totalPellets = 0;
   final List<Pellet> pellets = [];
   TimerComponent? _pelletDropper;
@@ -256,50 +324,58 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    final size = gameRef.size;
-    final wallSize = gameRef.screenToWorld(size);
 
+    targetVortex = TargetVortex(position: Vector2.zero());
+    drainHole = DrainHole(position: Vector2.zero());
+    pelletEmitter = PelletEmitter(position: Vector2.zero());
+
+    final wallSize = gameRef.screenToWorld(gameRef.size);
     gameRef.camera.moveTo(wallSize);
-
     add(GridComponent());
 
     const inset = 0.5;
     final rect = Rect.fromLTRB(inset, inset, wallSize.x * 2 - inset, wallSize.y * 2 - inset);
-
     add(_RoundedBoundaryPainter(rect: rect, paint: boundaryPaint, cornerRadius: 10.0));
 
-    // Boundary walls (invisible)
+    // Boundary walls
     add(Wall(Vector2(inset, inset), Vector2(wallSize.x * 2 - inset, inset)));
     add(Wall(Vector2(inset, wallSize.y * 2 - inset), Vector2(wallSize.x * 2 - inset, wallSize.y * 2 - inset)));
     add(Wall(Vector2(inset, inset), Vector2(inset, wallSize.y * 2 - inset)));
     add(Wall(Vector2(wallSize.x * 2 - inset, inset), Vector2(wallSize.x * 2 - inset, wallSize.y * 2 - inset)));
 
-
-    // Inner border
     const innerInset = 1.0;
     add(Wall(Vector2(innerInset, innerInset), Vector2(wallSize.x * 2 - innerInset, innerInset), wallPaint: innerBoundaryPaint));
     add(Wall(Vector2(innerInset, wallSize.y * 2 - innerInset), Vector2(wallSize.x * 2 - innerInset, wallSize.y * 2 - innerInset), wallPaint: innerBoundaryPaint));
     add(Wall(Vector2(innerInset, innerInset), Vector2(innerInset, wallSize.y * 2 - innerInset), wallPaint: innerBoundaryPaint));
     add(Wall(Vector2(wallSize.x * 2 - innerInset, innerInset), Vector2(wallSize.x * 2 - innerInset, wallSize.y * 2 - innerInset), wallPaint: innerBoundaryPaint));
+  }
 
+  void setupLevel(Level level) {
+    currentLevel = level;
 
-    targetVortex = TargetVortex(position: Vector2(wallSize.x, wallSize.y * 1.75));
-    drainHole = DrainHole(position: Vector2(wallSize.x / 2, wallSize.y * 1.75));
-    add(targetVortex);
+    children.whereType<DrainHole>().forEach((e) => e.removeFromParent());
+    children.whereType<TargetVortex>().forEach((e) => e.removeFromParent());
+    children.whereType<PelletEmitter>().forEach((e) => e.removeFromParent());
+
+    drainHole = DrainHole(position: level.drainHolePosition);
+    targetVortex = TargetVortex(position: level.targetVortexPosition);
+    pelletEmitter = PelletEmitter(position: level.emitterPosition);
+
     add(drainHole);
-
-    final pelletEmitterPosition = Vector2(5, 5);
-    add(PelletEmitter(position: pelletEmitterPosition));
+    add(targetVortex);
+    add(pelletEmitter);
   }
 
   void startDroppingPellets() {
-    final pelletEmitterPosition = Vector2(5, 5);
     _pelletDropper = TimerComponent(
       period: 1,
       repeat: true,
       onTick: () {
         if (gameRef.gameState == GameState.playing) {
-          final pellet = Pellet(position: pelletEmitterPosition);
+          final pellet = Pellet(
+            position: currentLevel.emitterPosition,
+            velocity: currentLevel.pelletVelocity,
+          );
           add(pellet);
           pellets.add(pellet);
           totalPellets++;
@@ -378,6 +454,10 @@ class CountdownComponent extends Component with HasGameRef<BumperBuilderGame> {
 }
 
 class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
+  final int level;
+
+  SettleDownComponent({required this.level});
+
   @override
   Future<void> onLoad() async {
     super.onLoad();
@@ -387,54 +467,71 @@ class SettleDownComponent extends Component with HasGameRef<BumperBuilderGame> {
       paint: Paint()..color = Colors.black.withOpacity(0.5),
     ));
 
-    final timerOverText = TextComponent(
-      text: 'Timer is Over',
-      position: gameRef.size / 2,
-      anchor: Anchor.center,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 50,
-          fontFamily: 'Orbitron',
-          shadows: [Shadow(color: Colors.red, blurRadius: 10)],
+    if (level == 1 || level == 5) {
+      final timerOverText = TextComponent(
+        text: 'Timer is Over',
+        position: gameRef.size / 2,
+        anchor: Anchor.center,
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 50,
+            fontFamily: 'Orbitron',
+            shadows: [Shadow(color: Colors.red, blurRadius: 10)],
+          ),
         ),
-      ),
-    );
-    add(timerOverText);
+      );
+      add(timerOverText);
 
-    await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2));
 
-    remove(timerOverText);
+      remove(timerOverText);
 
-    final convertingText = TextBoxComponent(
-      text: 'Converting pallets to encoded message...',
-      size: Vector2(gameRef.size.x * 0.8, 200),
-      position: gameRef.size / 2,
-      anchor: Anchor.center,
-      align: Anchor.center,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.cyanAccent,
-          fontSize: 20,
-          fontFamily: 'Orbitron',
-          shadows: [Shadow(color: Colors.cyanAccent, blurRadius: 10)],
+      final convertingText = TextBoxComponent(
+        text: level == 1 ? 'Converting pallets to encoded message...' : 'New message decoded!',
+        size: Vector2(gameRef.size.x * 0.8, 200),
+        position: gameRef.size / 2,
+        anchor: Anchor.center,
+        align: Anchor.center,
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            color: Colors.cyanAccent,
+            fontSize: 20,
+            fontFamily: 'Orbitron',
+            shadows: [Shadow(color: Colors.cyanAccent, blurRadius: 10)],
+          ),
         ),
-      ),
-    );
-    add(convertingText);
+      );
+      add(convertingText);
 
-    final flickerTimer = TimerComponent(
-      period: 0.5,
-      repeat: true,
-      onTick: () {
-        if (convertingText.isMounted) {
-          remove(convertingText);
-        } else {
-          add(convertingText);
-        }
-      },
-    );
-    add(flickerTimer);
+      final flickerTimer = TimerComponent(
+        period: 0.5,
+        repeat: true,
+        onTick: () {
+          if (convertingText.isMounted) {
+            remove(convertingText);
+          } else {
+            add(convertingText);
+          }
+        },
+      );
+      add(flickerTimer);
+    } else {
+      final greatJobText = TextComponent(
+        text: 'Great Job!',
+        position: gameRef.size / 2,
+        anchor: Anchor.center,
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 50,
+            fontFamily: 'Orbitron',
+            shadows: [Shadow(color: Colors.green, blurRadius: 10)],
+          ),
+        ),
+      );
+      add(greatJobText);
+    }
 
     add(TimerComponent(
       period: 0.1,

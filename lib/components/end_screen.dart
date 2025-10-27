@@ -8,13 +8,17 @@ enum DecodingStep { initial, shuffling, revealing, complete }
 class EndScreen extends StatefulWidget {
   final int score;
   final int totalPellets;
+  final int level;
   final VoidCallback onRestart;
+  final VoidCallback onNextLevel;
 
   const EndScreen({
     super.key,
     required this.score,
     required this.totalPellets,
+    required this.level,
     required this.onRestart,
+    required this.onNextLevel,
   });
 
   @override
@@ -56,6 +60,15 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
       });
     }
     _visibleMessage = _scrambleMessage(_decodedMessage).toUpperCase();
+
+    if (widget.level >= 2 && widget.level <= 4) {
+      if (percentage < 50) {
+        _isDecoding = false;
+      } else {
+        _isDecoding = true;
+        _decodingStep = DecodingStep.complete; // Skip to the end for non-decoding levels
+      }
+    }
   }
 
   String _scrambleMessage(String message) {
@@ -151,7 +164,7 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
-          child: _isDecoding ? _buildDecodingView() : _buildInitialView(failed, percentage),
+          child: _isDecoding ? _buildDecodingView(failed) : _buildInitialView(failed, percentage),
         ),
       ),
     );
@@ -235,58 +248,100 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 20.0),
-            const Text(
-              'You received an encoded message from planet Cygnus Gamma-9',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18.0,
-                fontFamily: 'Orbitron',
-                shadows: [
-                  Shadow(
-                    color: Colors.cyanAccent,
-                    blurRadius: 5.0,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20.0),
-            ElevatedButton(
-              onPressed: _decode,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
-                ),
-                shadowColor: Colors.cyanAccent,
-                elevation: 10.0,
-              ),
-              child: const Text(
-                'Decode',
+            if (widget.level == 1 || widget.level == 5) ...[
+              const Text(
+                'You received an encoded message from planet Cygnus Gamma-9',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 20.0,
-                  fontFamily: 'Orbitron',
-                  fontWeight: FontWeight.bold,
                   color: Colors.white,
+                  fontSize: 18.0,
+                  fontFamily: 'Orbitron',
+                  shadows: [
+                    Shadow(
+                      color: Colors.cyanAccent,
+                      blurRadius: 5.0,
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 20.0),
+              ElevatedButton(
+                onPressed: _decode,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
+                  ),
+                  shadowColor: Colors.cyanAccent,
+                  elevation: 10.0,
+                ),
+                child: const Text(
+                  'Decode',
+                  style: TextStyle(
+                    fontSize: 20.0,
+                    fontFamily: 'Orbitron',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ] else ...[
+              const Text(
+                'Great Job!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24.0,
+                  fontFamily: 'Orbitron',
+                  shadows: [
+                    Shadow(
+                      color: Colors.greenAccent,
+                      blurRadius: 5.0,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20.0),
+              ElevatedButton(
+                onPressed: widget.onNextLevel,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
+                  ),
+                  shadowColor: Colors.cyanAccent,
+                  elevation: 10.0,
+                ),
+                child: const Text(
+                  'Next Level',
+                  style: TextStyle(
+                    fontSize: 20.0,
+                    fontFamily: 'Orbitron',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),
     );
   }
 
-  Widget _buildDecodingView() {
+  Widget _buildDecodingView(bool failed) {
     final percentage = (widget.totalPellets > 0 ? (widget.score / widget.totalPellets) * 100 : 0).toDouble();
     final int decodedLength = (_decodedMessage.length * (percentage / 100)).floor();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (_decodingStep == DecodingStep.initial)
+        if (_decodingStep != DecodingStep.complete)
           Text(
             _visibleMessage,
             textAlign: TextAlign.center,
@@ -302,83 +357,111 @@ class _EndScreenState extends State<EndScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-        if (_decodingStep == DecodingStep.shuffling || _decodingStep == DecodingStep.revealing)
-          Text(
-            _visibleMessage,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18.0,
-              fontFamily: 'Orbitron',
-              shadows: [
-                Shadow(
-                  color: Colors.cyanAccent,
-                  blurRadius: 5.0,
-                ),
-              ],
-            ),
-          ),
-        if (_decodingStep == DecodingStep.complete)
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: const TextStyle(
-                fontSize: 18.0,
-                fontFamily: 'Orbitron',
-              ),
-              children: [
-                TextSpan(
-                  text: _visibleMessage.substring(0, decodedLength),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                TextSpan(
-                  text: '*' * (_visibleMessage.length - decodedLength),
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 20.0),
         if (_decodingStep == DecodingStep.complete)
           Column(
             children: [
-              Text(
-                'Based on the collected pallets only ${percentage.toStringAsFixed(0)}% of the message is decoded.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.amber,
-                  fontSize: 16.0,
-                  fontFamily: 'Orbitron',
+              if (widget.level >= 2 && widget.level <= 4 && !failed) ...[
+                const Text(
+                  'Great Job!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24.0,
+                    fontFamily: 'Orbitron',
+                    shadows: [
+                      Shadow(
+                        color: Colors.greenAccent,
+                        blurRadius: 5.0,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ] else if (!failed) ...[
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 18.0,
+                      fontFamily: 'Orbitron',
+                    ),
+                    children: [
+                      TextSpan(
+                        text: _visibleMessage.substring(0, decodedLength),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      TextSpan(
+                        text: '*' * (_visibleMessage.length - decodedLength),
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                Text(
+                  'Based on the collected pallets only ${percentage.toStringAsFixed(0)}% of the message is decoded.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 16.0,
+                    fontFamily: 'Orbitron',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        const SizedBox(height: 20.0),
+        if (_decodingStep == DecodingStep.complete || failed)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: widget.onRestart,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
+                  ),
+                  shadowColor: Colors.cyanAccent,
+                  elevation: 10.0,
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontSize: 20.0,
+                    fontFamily: 'Orbitron',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              const SizedBox(height: 20.0),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: widget.onRestart,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.0),
-                        side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
-                      ),
-                      shadowColor: Colors.cyanAccent,
-                      elevation: 10.0,
+              const SizedBox(width: 20),
+              if (!failed) ...[
+                ElevatedButton(
+                  onPressed: widget.onNextLevel,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 15.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      side: const BorderSide(color: Colors.cyanAccent, width: 2.0),
                     ),
-                    child: const Text(
-                      'Retry Again',
-                      style: TextStyle(
-                        fontSize: 20.0,
-                        fontFamily: 'Orbitron',
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    shadowColor: Colors.cyanAccent,
+                    elevation: 10.0,
+                  ),
+                  child: Text(
+                    widget.level < 5 ? 'Next Level' : 'Play Again',
+                    style: const TextStyle(
+                      fontSize: 20.0,
+                      fontFamily: 'Orbitron',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ]
             ],
           ),
       ],

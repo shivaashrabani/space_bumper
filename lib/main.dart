@@ -29,9 +29,9 @@ class MyApp extends StatelessWidget {
               return EndScreen(
                 score: game.targetVortex.pelletCount,
                 totalPellets: game.totalPellets,
-                onRestart: () {
-                  game.restartGame();
-                },
+                level: game.currentLevel,
+                onRestart: game.loadLevel,
+                onNextLevel: game.goToNextLevel,
               );
             },
           },
