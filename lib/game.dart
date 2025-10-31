@@ -7,6 +7,7 @@ import 'package:flame/events.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:bumper_builder/components/asteroid.dart';
+import 'package:bumper_builder/components/black_hole.dart';
 import 'package:bumper_builder/components/bumper.dart';
 import 'package:bumper_builder/components/drain_hole.dart';
 import 'package:bumper_builder/components/grid.dart';
@@ -26,6 +27,8 @@ class Level {
   final Vector2 pelletVelocity;
   final List<Vector2> asteroidPositions;
   final List<double> asteroidRadii;
+  final List<Vector2> blackHolePositions;
+  final List<double> blackHoleRadii;
 
   Level({
     required this.emitterPosition,
@@ -34,14 +37,17 @@ class Level {
     required this.pelletVelocity,
     this.asteroidPositions = const [],
     this.asteroidRadii = const [],
+    this.blackHolePositions = const [],
+    this.blackHoleRadii = const [],
   });
 }
 
 class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   BumperBuilderGame() : super(world: BumperBuilderWorld(), zoom: 20, gravity: Vector2(0, 10));
 
-  int currentLevel = 1;
+  int currentLevel = 15;
   late final List<Level> levels;
+  TextComponent? levelText;
 
   Vector2? dragStart;
   Vector2? dragEnd;
@@ -59,6 +65,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   DrainHole get drainHole => (world as BumperBuilderWorld).drainHole;
   int get totalPellets => (world as BumperBuilderWorld).totalPellets;
   bool get pelletsHaveSettled {
+    (world as BumperBuilderWorld).pellets.removeWhere((pellet) => !pellet.isMounted);
     if ((world as BumperBuilderWorld).pellets.isEmpty) {
       return true;
     }
@@ -91,6 +98,20 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     ]);
     overlays.add('startScreen');
     add(ToolbarComponent());
+
+    levelText = TextComponent(
+      text: 'Level $currentLevel',
+      position: Vector2(camera.viewport.size.x / 2, 20),
+      anchor: Anchor.topCenter,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 24.0,
+          fontFamily: 'Orbitron',
+        ),
+      ),
+    );
+    add(levelText!);
   }
 
   void _initializeLevels(Vector2 wallSize) {
@@ -202,6 +223,144 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
         ],
         asteroidRadii: [2.0, 2.5, 1.5, 2.0, 1.5, 1.0],
       ),
+
+      // Levels 11-15 (with black holes)
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY),
+        pelletVelocity: Vector2(0, 0),
+        blackHolePositions: [Vector2(centerX, gameHeight / 2)],
+        blackHoleRadii: [2.0],
+      ),
+      Level(
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(rightX, bottomY),
+        targetVortexPosition: Vector2(centerX, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(rightX, bottomY), 2.5),
+        blackHolePositions: [
+          Vector2(centerX - 10, gameHeight / 2),
+          Vector2(centerX + 10, gameHeight / 2),
+        ],
+        blackHoleRadii: [1.5, 1.5],
+      ),
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY - 10),
+        pelletVelocity: Vector2(10, 0),
+        blackHolePositions: [
+          Vector2(centerX, gameHeight / 2 - 10),
+          Vector2(centerX, gameHeight / 2 + 10),
+        ],
+        blackHoleRadii: [2.0, 2.0],
+      ),
+      Level(
+        emitterPosition: Vector2(wallPadding, gameHeight - 10),
+        drainHolePosition: Vector2(rightX, gameHeight - 10),
+        targetVortexPosition: Vector2(centerX, bottomY),
+        pelletVelocity: Vector2(0, -20),
+        blackHolePositions: [
+          Vector2(centerX - 10, gameHeight * 0.4),
+          Vector2(centerX + 10, gameHeight * 0.6),
+          Vector2(centerX, gameHeight * 0.8),
+        ],
+        blackHoleRadii: [1.5, 1.5, 2.5],
+      ),
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(centerX, gameHeight - 10),
+        pelletVelocity: Vector2(0, 0),
+        blackHolePositions: [
+          Vector2(centerX - 15, gameHeight * 0.25),
+          Vector2(centerX + 15, gameHeight * 0.4),
+          Vector2(centerX, gameHeight * 0.6),
+          Vector2(centerX - 10, gameHeight * 0.8),
+        ],
+        blackHoleRadii: [1.5, 1.0, 2.0, 1.5],
+      ),
+
+      // Levels 16-20 (with black holes and asteroids)
+      Level(
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(rightX, bottomY),
+        targetVortexPosition: Vector2(wallPadding, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(wallPadding, 5), Vector2(rightX, bottomY), 3.0),
+        asteroidPositions: [
+          Vector2(centerX, 25),
+        ],
+        asteroidRadii: [2.5],
+        blackHolePositions: [
+          Vector2(centerX, gameHeight / 2 + 10),
+        ],
+        blackHoleRadii: [2.0],
+      ),
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY - 10),
+        pelletVelocity: Vector2(10, 5),
+        asteroidPositions: [
+          Vector2(centerX - 10, gameHeight / 2 - 5),
+          Vector2(centerX + 10, gameHeight / 2 + 5),
+        ],
+        asteroidRadii: [2.0, 2.0],
+        blackHolePositions: [
+          Vector2(centerX, gameHeight / 2 - 15),
+          Vector2(centerX, gameHeight / 2 + 15),
+        ],
+        blackHoleRadii: [1.5, 1.5],
+      ),
+      Level(
+        emitterPosition: Vector2(rightX, 5),
+        drainHolePosition: Vector2(wallPadding, bottomY),
+        targetVortexPosition: Vector2(centerX, bottomY),
+        pelletVelocity: calculateVelocity(Vector2(rightX, 5), Vector2(wallPadding, bottomY), 2.8),
+        asteroidPositions: [
+          Vector2(centerX, gameHeight * 0.3),
+          Vector2(centerX - 10, gameHeight * 0.5),
+          Vector2(centerX + 10, gameHeight * 0.7),
+        ],
+        asteroidRadii: [2.0, 1.5, 1.5],
+        blackHolePositions: [
+          Vector2(centerX, gameHeight * 0.8),
+        ],
+        blackHoleRadii: [2.5],
+      ),
+      Level(
+        emitterPosition: Vector2(wallPadding, 5),
+        drainHolePosition: Vector2(rightX, bottomY),
+        targetVortexPosition: Vector2(wallPadding, bottomY),
+        pelletVelocity: Vector2(20, 0),
+        asteroidPositions: [
+          Vector2(centerX - 15, gameHeight * 0.25),
+          Vector2(centerX + 15, gameHeight * 0.75),
+        ],
+        asteroidRadii: [2.0, 2.0],
+        blackHolePositions: [
+          Vector2(centerX, gameHeight * 0.4),
+          Vector2(centerX, gameHeight * 0.6),
+        ],
+        blackHoleRadii: [1.5, 1.5],
+      ),
+      Level(
+        emitterPosition: Vector2(centerX, 5),
+        drainHolePosition: Vector2(centerX, bottomY),
+        targetVortexPosition: Vector2(rightX, bottomY),
+        pelletVelocity: Vector2(0, 0),
+        asteroidPositions: [
+          Vector2(centerX - 10, gameHeight * 0.3),
+          Vector2(centerX + 10, gameHeight * 0.3),
+          Vector2(centerX - 10, gameHeight * 0.7),
+          Vector2(centerX + 10, gameHeight * 0.7),
+        ],
+        asteroidRadii: [1.5, 1.5, 1.5, 1.5],
+        blackHolePositions: [
+          Vector2(centerX, gameHeight / 2),
+        ],
+        blackHoleRadii: [3.0],
+      ),
     ];
   }
 
@@ -239,8 +398,15 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
     world.children.whereType<Wall>().where((wall) => wall.isErasable).forEach((wall) => wall.removeFromParent());
     world.children.whereType<Bumper>().forEach((bumper) => bumper.removeFromParent());
     world.children.whereType<Asteroid>().forEach((asteroid) => asteroid.removeFromParent());
+    world.children.whereType<BlackHole>().forEach((blackHole) => blackHole.removeFromParent());
     wallStrokes.clear();
-    remainingWalls = 3;
+    if (currentLevel >= 16) {
+      remainingWalls = 5;
+    } else {
+      remainingWalls = 3;
+    }
+
+    levelText?.text = 'Level $currentLevel';
 
     (world as BumperBuilderWorld).setupLevel(levels[currentLevel - 1]);
 
@@ -277,6 +443,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     camera.viewport.size = size;
+    levelText?.position = Vector2(size.x / 2, 20);
   }
 
   @override
@@ -424,6 +591,7 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
     children.whereType<TargetVortex>().forEach((e) => e.removeFromParent());
     children.whereType<PelletEmitter>().forEach((e) => e.removeFromParent());
     children.whereType<Asteroid>().forEach((e) => e.removeFromParent());
+    children.whereType<BlackHole>().forEach((e) => e.removeFromParent());
 
     drainHole = DrainHole(position: level.drainHolePosition);
     targetVortex = TargetVortex(position: level.targetVortexPosition);
@@ -446,6 +614,17 @@ class BumperBuilderWorld extends Forge2DWorld with HasGameRef<BumperBuilderGame>
       position.y = position.y.clamp(radius + inset, gameHeight - radius - inset);
 
       add(Asteroid(position: position, radius: radius));
+    }
+
+    for (var i = 0; i < level.blackHolePositions.length; i++) {
+      final position = level.blackHolePositions[i];
+      final radius = level.blackHoleRadii[i];
+
+      // Clamp position to be within bounds
+      position.x = position.x.clamp(radius + inset, gameWidth - radius - inset);
+      position.y = position.y.clamp(radius + inset, gameHeight - radius - inset);
+
+      add(BlackHole(position: position, radius: radius));
     }
   }
 
