@@ -101,17 +101,17 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
 
     levelText = TextComponent(
       text: 'Level $currentLevel',
-      position: Vector2(camera.viewport.size.x / 2, 20),
+      position: Vector2(size.x / 2, 60),
       anchor: Anchor.topCenter,
       textRenderer: TextPaint(
         style: const TextStyle(
-          color: Colors.white,
+          color: Colors.yellow,
           fontSize: 24.0,
           fontFamily: 'Orbitron',
         ),
       ),
     );
-    add(levelText!);
+    camera.viewport.add(levelText!);
   }
 
   void _initializeLevels(Vector2 wallSize) {
@@ -415,7 +415,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
 
     // Start countdown
     gameState = GameState.countingDown;
-    add(CountdownComponent());
+    camera.viewport.add(CountdownComponent());
 
     // Add game timer
     add(
@@ -443,7 +443,7 @@ class BumperBuilderGame extends Forge2DGame with DragCallbacks {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     camera.viewport.size = size;
-    levelText?.position = Vector2(size.x / 2, 20);
+    levelText?.position = Vector2(size.x / 2, 60);
   }
 
   @override
